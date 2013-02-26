@@ -1,0 +1,7 @@
+name = Fontello
+description = Provides the ability to integrate custom font icons via the Fontello (http://fontello.com) service into your site.
+core = 7.x
+configure = admin/appearance/fontello
+
+files[] = fontello.install
+files[] = fontello.module

@@ -1,0 +1,279 @@
+<?php
+
+/**
+ * @file fontello.module
+ * Provides the ability to integrate custom font icons via the Fontello (http://fontello.com) service into your site.
+ */
+
+/**
+ * Implements hook_init().
+ */
+function fontello_init() {
+  fontello_add_css();
+}
+
+/**
+ * Implements hook_menu().
+ */
+function fontello_menu() {
+  $items = array();
+  $items['admin/appearance/fontello'] = array(
+    'title' => 'Fontello',
+    'description' =>  'Provides the overview of configuration options for Fontello.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fontello_admin_form'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'fontello.admin.inc',
+  );
+  $items['admin/appearance/fontello/config'] = array(
+    'title' => 'config.json',
+    'page callback' => 'fontello_config_callback',
+    'page arguments' => array(),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function fontello_theme($existing, $type, $theme, $path) {
+  return array(
+    'fontello_icon' => array(
+      'variables' => array(
+        'attributes' => array(),
+        'icon' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Helper function to return the configuration file.
+ *
+ * @param bool $process
+ *   If set to TRUE, the configuration file will be processed.
+ *
+ * @return string|array
+ *   Returns path to config file. If $process is set to
+ *   TRUE, returns an associative array. Returns FALSE
+ *   if no configuration file can be found.
+ */
+function fontello_config($process = FALSE, $reset = FALSE) {
+  $file = &drupal_static(__FUNCTION__ . '_file');
+  if ($reset || !isset($file)) {
+    $file = FALSE;
+    if ($fontello_dir = variable_get('fontello_dir', NULL)) {
+      $file = 'public://fontello/' . $fontello_dir . '/config.json';
+      if (!file_exists($file)) {
+        $file = FALSE;
+      }
+    }
+  }
+  if ($file && $process) {
+    $config = &drupal_static(__FUNCTION__ . '_config');
+    if ($reset || !isset($config)) {
+      $config = drupal_json_decode(file_get_contents($file));
+    }
+    return $config;
+  }
+  return $file;
+}
+
+/**
+ * Helper function to return all available icons.
+ */
+function fontello_get_icons($reset = FALSE) {
+  $icons = array();
+  if ($config = fontello_config(TRUE, $reset)) {
+    if (isset($config['glyphs'])) {
+      foreach ($config['glyphs'] as $icon) {
+        $icons[$icon['css']] = $icon;
+      }
+    }
+  }
+  // Alphebetically sort the icons.
+  ksort($icons);
+  return $icons;
+}
+
+/**
+ * Helper function to appropriately add CSS files.
+ */
+function fontello_add_css(&$element = NULL) {
+  if ($fontello_dir = variable_get('fontello_dir', NULL)) {
+    $css_dir = 'public://fontello/' . $fontello_dir . '/css';
+    $method = variable_get('fontello_method', 0);
+    $methods = array(
+      0 => 'fontello.css',
+      1 => 'fontello-embedded.css',
+      2 => 'fontello-codes.css',
+    );
+    $ie7 = array(
+      0 => 'fontello-ie7.css',
+      1 => 'fontello-ie7.css',
+      2 => 'fontello-ie7-codes.css',
+    );
+    $css_files = array(
+      'animation.css' => array(
+        'type' => 'file',
+        'variable' => 'fontello_animation',
+        'every_page' => TRUE,
+      ),
+      $methods[$method] => array(
+        'type' => 'file',
+        'every_page' => TRUE,
+      ),
+      $ie7[$method] => array(
+        'type' => 'file',
+        'every_page' => TRUE,
+        'variable' => 'fontello_ie7',
+        'browsers' => array(
+          'IE' => 'IE 7',
+          '!IE' => FALSE
+        ),
+      ),
+    );
+    foreach ($css_files as $file => $options) {
+      $options['basename'] = $fontello_dir . '-' . $file;
+      if (!empty($options['variable']) && !variable_get($options['variable'], TRUE)) {
+        continue;
+      }
+      if (!empty($element) && is_array($element)) {
+        $element['#attached']['css'][$css_dir . '/' . $file] = $options;
+      }
+      else {
+        drupal_add_css($css_dir . '/' . $file, $options);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_preprocess_fontello_icon().
+ */
+function fontello_preprocess_fontello_icon(&$variables) {
+  // Default classes.
+  $classes = array(
+    'icon',
+    'icon-' . $variables['icon']['css'],
+  );
+  // Add classes to array.
+  $attributes = &$variables['attributes'];
+  if (!isset($attributes['class'])) {
+    $attributes['class'] = array();
+  }
+  foreach ($classes as $class) {
+    if (!in_array($class, $attributes['class'])) {
+      $attributes['class'][] = $class;
+    }
+  }
+}
+
+/**
+ * Theming function for fontello_icon.
+ */
+function theme_fontello_icon($variables) {
+  $element = variable_get('fontello_element', 'i');
+  return '<' . $element . drupal_attributes($variables['attributes']) . '></' . $element . '>';
+}
+
+/**
+ * Callback for downloading the configuration file.
+ */
+function fontello_config_callback() {
+  if ($config = fontello_config()) {
+    global $user;
+    $file = new stdClass();
+    $file->fid = NULL;
+    $file->uri = $config;
+    $file->filename = drupal_basename($file->uri);
+    $file->filemime = file_get_mimetype($file->uri);
+    $file->filesize = filesize($file->uri);
+    $file->uid = $user->uid;
+    $file->status = FILE_STATUS_PERMANENT;
+    file_transfer($file->uri, file_get_content_headers($file));
+  }
+  drupal_not_found();
+}
+
+/*
+ * Extend block's classes with any user defined classes.
+ */
+function fontello_preprocess_block(&$vars) {
+  $block = $vars['block'];
+
+  /* The original code: */
+  //$classes = fontello($block);
+  //$vars['classes_array'] = array_merge($vars['classes_array'], explode(' ', $classes));
+
+  /* Replaced with the following so it doesn't fire that many queries if you have a lot of blocks */
+  static $_fontello_blocks_classes;
+
+  if (! isset ($_fontello_blocks_classes)) {
+    $_fontello_blocks_classes = array();
+    $result = db_query('SELECT settings, module, delta FROM {fontello}');
+    while ($record = $result->fetchObject()) {
+      $_fontello_blocks_classes[$record->module][$record->delta] = $record->icon;
+    }
+  }
+
+  if (isset($_fontello_blocks_classes[$block->module][$block->delta])) {
+    $classes = $_fontello_blocks_classes[$block->module][$block->delta];
+    $vars['classes_array'] = array_merge($vars['classes_array'], explode(' ', $classes));
+  }
+}
+
+
+/**
+ * Return classes as string
+ */
+function fontello($block) {
+  $ret = db_query('SELECT settings FROM {fontello} WHERE module = :module AND delta = :delta', array(':module' => $block->module, ':delta' => $block->delta))->fetchField();
+  return $ret ? check_plain ($ret) : '';
+}
+
+
+/**
+ * Alter block edit form
+ */
+function fontello_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'block_admin_configure' || $form_id == 'block_add_block_form') {
+    $block = new stdClass;
+    $block->module = $form['module']['#value'];
+    $block->delta = $form['delta']['#value'];
+    $icon = fontello($block);
+
+    // Create a more technical description for users with administer blocks permission.
+    $description = t('Customize the styling of this block by adding CSS classes. Separate multiple classes by spaces.');
+
+    $form['settings']['icon'] = array(
+      '#type' => 'textfield',
+      '#title' => t('CSS class(es)'),
+      '#default_value' => $icon,
+      '#description' => t('Separate classes with a space.'),
+      '#maxlength' => 255,
+    );
+
+    $form['#submit'][] = 'fontello_form_submit';
+  }
+}
+
+
+/**
+ * Save supplied class.
+ */
+function fontello_form_submit($form, &$form_state) {
+  if ($form_state['values']['form_id'] == 'block_admin_configure' || $form_state['values']['form_id'] == 'block_add_block_form') {
+    if (isset($form_state['values']['icon']) && user_access('administer blocks')) {
+      $module = $form_state['values']['module'];
+      $delta = $form_state['values']['delta'];
+      $class = $form_state['values']['icon'];
+      db_delete('fontello')->condition('module', $module)->condition('delta', $delta)->execute();
+      if (!empty($class)) {
+        $id = db_insert('fontello')->fields(array('module' => $module, 'delta' => $delta, 'icon' => $class))->execute();
+      }
+    }
+  }
+}

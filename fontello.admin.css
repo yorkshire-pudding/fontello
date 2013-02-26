@@ -1,0 +1,31 @@
+.iconwrapper {
+  color: #666;
+  float: left;
+  line-height: 1.5em;
+  margin: 0 2% 0 0;
+  width: 23%;
+}
+.iconwrapper .icon {
+  cursor: default;
+  display: inline-block;
+  *display: inline;
+  *zoom: 1;
+  float: left;
+  margin-right: 10px;
+  min-width: 1em;
+  text-align: center;
+}
+.iconwrapper .icon:before {
+  margin: 0;
+}
+.iconwrapper .iconlabel {
+  display: block;
+  margin-left: 10px;
+  overflow: hidden;
+  word-wrap: break-word;
+}
+.iconwrapper .iconlabel em {
+  color: #000;
+  font-style: normal;
+  font-weight: 700;
+}

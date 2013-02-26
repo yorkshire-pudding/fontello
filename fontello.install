@@ -1,0 +1,49 @@
+<?php
+
+/**
+ * @file fontello.install
+ * Install, update and uninstall functions for the fontello module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function fontello_schema() {
+  $schema['fontello'] = array(
+    'fields' => array(
+      'module' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The module to which the block belongs.',
+      ),
+      'delta' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "The ID of the module's block.",
+      ),
+      'settings' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'A serialized array of settings related to the block.',
+      ),
+    ),
+    'primary key' => array('module', 'delta'),
+  );
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function fontello_uninstall() {
+  // Remove variables.
+  db_delete('variable')
+  ->condition('name', 'fontello_%', 'LIKE')
+  ->execute();
+}

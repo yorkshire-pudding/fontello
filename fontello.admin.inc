@@ -11,10 +11,8 @@
 function fontello_admin_form($form, $form_state) {
   $form['#cache'] = TRUE;
   fontello_add_css($form);
-  drupal_add_css(drupal_get_path('module', 'fontello') . '/fontello.admin.css');
+  drupal_add_css(drupal_get_path('module', 'fontello') . '/css/fontello.admin.css');
   $icons = fontello_get_icons();
-  $form['#prefix'] = '<div id="fontello-admin-form-wrapper">';
-  $form['#suffix'] = '</div>';
   // Icons.
   $form['icons'] = array(
     '#type' => 'fieldset',
@@ -39,7 +37,7 @@ function fontello_admin_form($form, $form_state) {
       ),
       '#suffix' => '<span class="iconlabel">icon-<em>' . $icon['css'] . '</em></span></div>',
     );
-  }
+  }  
   // Upload form.
   $form['bundle'] = array(
     '#type' => 'fieldset',
@@ -47,28 +45,48 @@ function fontello_admin_form($form, $form_state) {
     '#collapsible' => TRUE,
     '#collapsed' => count($icons) ? TRUE : FALSE,
   );
-  if (fontello_config()) {
-    $form['bundle']['config'] = array(
-      '#type' => 'item',
-      '#markup' => t('<p>!fontello includes a configuration file (config.json) inside the webfont bundle that was originally downloaded. This file contains a JSON list of the selected icons so it can be re-imported back into their site. It allows the icon set to be pruned of unused icons or expanded to utilize even more.</p><strong>!config</strong>', array(
-        '!fontello' => l('Fontello', 'http://fontello.com'),
-        '!config' => l('Download: config.json', 'admin/appearance/fontello/config'),
-      )),
-    );
-  }
   $form['bundle']['file'] = array(
     '#type' => 'file',
-    '#title' => t('Upload Webfont Bundle'),
+    '#title' => t('Import Bundle'),
     '#description' => t('Provide the webfont bundle archive supplied from !fontello.', array('!fontello' => l('Fontello', 'http://fontello.com'))),
     '#size' => 40,
   );
-  $form['bundle']['actions'] = array('#type' => 'actions');
-  $form['bundle']['actions']['import'] = array(
+  $form['bundle']['import'] = array(
     '#type' => 'submit',
     '#value' => t('Import'),
     '#validate' => array('fontello_admin_form_import_validate'),
     '#submit' => array('fontello_admin_form_import_submit'),
   );
+  if ($fontello_dir = variable_get('fontello_dir', NULL)) {
+    $header = array(
+      t('Files'),
+      t('Size'),
+    );
+    $rows = array();
+    $files = file_scan_directory('public://fontello/' . $fontello_dir, '/.*/', array('nomask' => '/(\.\.?|\.html|\.txt)$/'));
+    ksort($files);
+    foreach($files as $file) {
+      $row = array();
+      $filename = str_replace('public://fontello/' . $fontello_dir . '/', '', $file->uri);
+      if ($filename === 'config.json') {
+        $filename .= ' (' . l('Download', 'admin/appearance/fontello/config') . ')';
+      }
+      $row[] = $filename;
+      $row[] = format_size(filesize($file->uri));
+      $rows[] = $row;
+    }
+    $form['bundle']['files'] = array(
+      '#theme' => 'table',
+      '#header' => $header,
+      '#rows' => $rows,
+    );
+    $form['bundle']['delete'] = array(
+      '#access' => count($icons) ? TRUE : FALSE,
+      '#type' => 'submit',
+      '#value' => t('Delete Bundle'),
+      '#submit' => array('fontello_admin_form_delete_submit'),
+    );
+  }
   // Settings.
   $form['settings'] = array(
     '#access' => count($icons) ? TRUE : FALSE,
@@ -94,14 +112,10 @@ function fontello_admin_form($form, $form_state) {
   $form['settings']['fontello_method'] = array(
     '#type' => 'radios',
     '#title' => t('Include Method'),
-    '#description' =>
-      t('<p><strong>Default</strong> - This method is strongly recommended and is usually enough. It contains the @font-face and character codes definitions.</p>') .
-      t('<p><strong>Embedded</strong> - Same as Default, however it contains the embedded WOFF font to avoid CORS issues in Firefox and IE9+, when fonts are hosted on a separate domain. It is strongly recommend to resolve this issue by adding appropriate "Access-Control-Allow-Origin" server headers. NOTE: Does not contain IE7 codes.</p>') .
-      t('<p><strong>Codes Only</strong> - This method is for advanced use cases and will require the use of a custom @font-face declaration. This can be useful in cases where seperating out the font is necessary (like automated asset build systems), however still wishing to reap the beneifits of Fontello\'s CSS generation. This module does not yet support a separated font asset upload and will need to be added via the theme or a custom module. See Fontello source code for an example.</p>'),
     '#options' => array(
-      0 => t('Default'),
-      1 => t('Embedded'),
-      2 => t('Codes Only'),
+      0 => t('<strong>Default</strong><div><small>This method is strongly recommended and is usually enough. It contains the @font-face and character codes definitions.</small></div>'),
+      1 => t('<strong>Embedded</strong><div><small>Same as Default, however it contains the embedded WOFF font to avoid CORS issues in Firefox and IE9+, when fonts are hosted on a separate domain. It is strongly recommend to resolve this issue by adding appropriate "Access-Control-Allow-Origin" server headers. NOTE: Does not contain IE7 codes.</small></div>'),
+      2 => t('<strong>Codes Only</strong><div><small>This method is for advanced use cases and will require the use of a custom @font-face declaration. This can be useful in cases where seperating out the font is necessary (like automated asset build systems), however still wishing to reap the beneifits of Fontello\'s CSS generation. This module does not yet support a separated font asset upload and will need to be added via the theme or a custom module. See Fontello source code for an example.</small></div>'),
     ),
     '#default_value' => variable_get('fontello_method', 0),
   );
@@ -129,7 +143,6 @@ function fontello_admin_form($form, $form_state) {
  * Admin form import validation.
  */
 function fontello_admin_form_import_validate($form, &$form_state) {
-  $old_fontello_dir = variable_get('fontello_dir', NULL);
   // Validate extensions.
   $validators = array('file_validate_extensions' => array(archiver_get_extensions()));
   if (!$file = file_save_upload('file', $validators, NULL, FILE_EXISTS_REPLACE)) {
@@ -141,42 +154,11 @@ function fontello_admin_form_import_validate($form, &$form_state) {
     form_set_error('file', t('The file upload is not a valid archive provided by !fontello.', array('!fontello' => l('Fontello', 'http://fontello.com'))));
     return;
   }
-  // Determine the new Fontello directory.
-  $fontello_dir = substr($file->filename, 0, strpos($file->filename, '.'));
-  // Prepare the directory
-  $archive_destination = 'public://fontello';
-  file_prepare_directory($archive_destination);
-  // Extract the files.
-  module_load_include('inc', 'update', 'update.manager');
-  try {
-    $archive = update_manager_archive_extract($file->uri, $archive_destination);
-  }
-  catch (Exception $e) {
-    form_set_error('file', $e->getMessage());
+  $bundle = fontello_import_bundle($file);
+  if ($bundle !== TRUE) {
+    form_set_error('file', $bundle);
     return;
   }
-  $files = $archive->listContents();
-  if (!$files || !in_array($fontello_dir . '/config.json', $files)) {
-    form_set_error('file', t('The archive uploaded does not contain the %config file provided by !fontello.', array(
-      '%config' => 'config.json',
-      '!fontello' => l('Fontello', 'http://fontello.com'),
-    )));
-    file_unmanaged_delete_recursive('public://fontello/' . $fontello_dir);
-    return;
-  }
-  // Delete the previous fontello directory.
-  if ($old_fontello_dir && $old_fontello_dir !== $fontello_dir) {
-    file_unmanaged_delete_recursive('public://fontello/' . $old_fontello_dir);
-  }
-  // Rename the extracted directory into a unique hash.
-  $new_fontello_dir = md5($fontello_dir . REQUEST_TIME);
-  if (!@rename(drupal_realpath('public://fontello/' . $fontello_dir), drupal_realpath('public://fontello/' . $new_fontello_dir))) {
-    drupal_set_message(t('Failed to rename directory "@old_dir" to "@new_dir"', array('@old_dir' => utf8_encode($fontello_dir), '@new_dir' => utf8_encode($new_fontello_dir))));
-  }
-  // Save the new fontello directory in a variable.
-  variable_set('fontello_dir', $new_fontello_dir);
-  // Delete the archive file.
-  file_delete($file);
 }
 
 /**
@@ -188,6 +170,13 @@ function fontello_admin_form_import_submit($form, &$form_state) {
     drupal_set_message(format_plural(count($icons), '1 font icon was successfully imported.', '@count font icons were successfully imported.'));
   }
   $form_state['input'] = array();
+}
+
+/**
+ * Admin form delete bundle.
+ */
+function fontello_admin_form_delete_submit($form, &$form_state) {
+  fontello_remove_bundle();
 }
 
 /**

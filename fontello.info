@@ -5,3 +5,4 @@ configure = admin/appearance/fontello
 
 files[] = fontello.install
 files[] = fontello.module
+files[] = fontello.admin.inc

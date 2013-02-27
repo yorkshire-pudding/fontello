@@ -1,0 +1,63 @@
+/* Tao Fixes */
+.tao {
+  fieldset {
+    table, input.teaser-button, input.form-submit {
+      margin: 10px 0;
+      &:first-child {
+        margin-top: 0;
+      }
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+}
+/* Form Fixes */
+.form-item {
+  &.form-type-item {
+    clear: both;
+    float: left;
+    margin: 10px 0 0;
+    width: 100%;
+  }
+  &.form-type-radio input {
+    float: left;
+    margin: 5px 10px;
+  }
+  &.form-type-radio label.option {
+    display: block;
+    overflow: hidden;
+  }
+}
+/* Icons */
+.iconwrapper {
+  color: #666;
+  float: left;
+  line-height: 1.5em;
+  margin: 0 2% 0 0;
+  width: 23%;
+  .icon {
+    cursor: default;
+    display: inline-block;
+    *display: inline;
+    *zoom: 1;
+    float: left;
+    margin-right: 10px;
+    min-width: 1em;
+    text-align: center;
+    &:before {
+      margin: 0;
+    }
+  }
+  .iconlabel {
+    display: block;
+    margin-left: 10px;
+    overflow: hidden;
+    word-wrap: break-word;
+    em {
+      color: #000;
+      font-style: normal;
+      font-weight: 700;
+    }
+  }
+}

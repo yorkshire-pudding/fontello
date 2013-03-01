@@ -1,5 +1,5 @@
 name = Fontello
-description = Provides the ability to integrate custom font icons via the Fontello (http://fontello.com) service into your site.
+description = Provides webfont icon integration via the <a href="http://fontello.com" target="_blank">Fontello</a> service.
 core = 7.x
 configure = admin/appearance/fontello
 

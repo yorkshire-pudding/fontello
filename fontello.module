@@ -47,6 +47,14 @@ function fontello_theme($existing, $type, $theme, $path) {
         'icon' => NULL,
       ),
     ),
+    'fontello_list' => array(
+      'variables' => array(
+        'items' => array(),
+        'title' => NULL,
+        'type' => 'ul',
+        'attributes' => array(),
+      ),
+    )
   );
 }
 
@@ -182,6 +190,105 @@ function fontello_get_icons($reset = FALSE) {
   return $icons;
 }
 
+function fontello_form_icon_select(&$element, $default) {
+  $fontello_path = drupal_get_path('module', 'fontello');
+  $random = mt_rand();
+  $icons = fontello_get_icons();
+  $options = array('' => '- No Icon -');
+  foreach ($icons as $name => $icon) {
+    $options[$name] = $name;
+  }
+  if (!count($icons)) {
+    return;
+  }
+  fontello_admin_add_css();
+  $element['#attached'] = array(
+    'js' => array(
+      $fontello_path . '/js/jquery.dropdown.js',
+      $fontello_path . '/js/fontello.js',
+    ),
+  );
+  $element['icon'] = array(
+    '#type' => 'select',
+    '#default_value' => $default,
+    '#options' => array_combine(array_keys($options), array_values($options)),
+    '#attributes' => array(
+      'class' => array('icon-value'),
+    ),
+    '#prefix' => '<div data-dropdown="#dropdown-' . $random .'" class="fontello-select-icon form-item">',
+  );
+  // Enclose the text with labels and assign class names for JS dropdown.
+  foreach ($options as $name => $icon) {
+    $options[$name] = array(
+      'data' => empty($name) ? '<label>' . $icon . '</label></li><li class="dropdown-divider">' : '<label>' . theme('fontello_icon' , array('icon' => $icons[$name])) . ' ' . $icon . '</label>',
+      'data-value' => $name,
+    );
+  }
+  $element['icon_dropdown'] = array(
+    '#theme' => 'fontello_list',
+    '#items' => $options,
+    '#attributes' => array('class' => array('dropdown-menu')),
+    '#prefix' => '<div id="dropdown-' . $random . '" class="dropdown dropdown-scroll">',
+    '#suffix' => '</div></div>',
+  );
+}
+
+function theme_fontello_list($variables) {
+  $items = $variables['items'];
+  $title = $variables['title'];
+  $type = $variables['type'];
+  $attributes = $variables['attributes'];
+
+  // Only output the list container and title, if there are any list items.
+  // Check to see whether the block title exists before adding a header.
+  // Empty headers are not semantic and present accessibility challenges.
+  $output = '';
+  if (isset($title) && $title !== '') {
+    $output .= '<h3>' . $title . '</h3>';
+  }
+
+  if (!empty($items)) {
+    $output .= "<$type" . drupal_attributes($attributes) . '>';
+    $num_items = count($items);
+    $i = 0;
+    foreach ($items as $item) {
+      $attributes = array();
+      $children = array();
+      $data = '';
+      $i++;
+      if (is_array($item)) {
+        foreach ($item as $key => $value) {
+          if ($key == 'data') {
+            $data = $value;
+          }
+          elseif ($key == 'children') {
+            $children = $value;
+          }
+          else {
+            $attributes[$key] = $value;
+          }
+        }
+      }
+      else {
+        $data = $item;
+      }
+      if (count($children) > 0) {
+        // Render nested list.
+        $data .= theme_item_list(array('items' => $children, 'title' => NULL, 'type' => $type, 'attributes' => $attributes));
+      }
+      if ($i == 1) {
+        $attributes['class'][] = 'first';
+      }
+      if ($i == $num_items) {
+        $attributes['class'][] = 'last';
+      }
+      $output .= '<li' . drupal_attributes($attributes) . '>' . $data . "</li>\n";
+    }
+    $output .= "</$type>";
+  }
+  return $output;
+}
+
 /**
  * Helper function to determine the proper CSS files to add.
  *
@@ -253,6 +360,14 @@ function fontello_add_css(&$element = NULL, $reset = FALSE) {
       drupal_add_css($file, $options);
     }
   }
+}
+
+function fontello_admin_add_css() {
+  $path = drupal_get_path('module', 'fontello');
+  drupal_add_css($path . '/admin-font/css/animation.css');
+  drupal_add_css($path . '/admin-font/css/fontello.css');
+  drupal_add_css($path . '/admin-font/css/fontello-ie7.css', array('browsers' => array('IE' => 'IE 7', '!IE' => FALSE)));
+  drupal_add_css($path . '/css/fontello.admin.css');
 }
 
 /**

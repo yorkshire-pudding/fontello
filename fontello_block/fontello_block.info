@@ -1,0 +1,6 @@
+name = Fontello Block
+description = Provides Fontello font icon integration support for blocks.
+core = 7.x
+
+files[] = fontello_block.install
+files[] = fontello_block.module

@@ -1,0 +1,45 @@
+{
+  "name": "",
+  "glyphs": [
+    {
+      "search": [
+        "settings",
+        "cog",
+        "gear"
+      ],
+      "code": 983027,
+      "from": 9967,
+      "uid": "98687378abd1faf8f6af97c254eb6cd6",
+      "css": "admin-cogs",
+      "orig_css": "cog-alt",
+      "orig_code": 983027,
+      "src": "fontawesome"
+    },
+    {
+      "search": [
+        "arrow",
+        "dropdown",
+        "combobox"
+      ],
+      "code": 983025,
+      "uid": "0a3192de65a73ca1501b073ad601f87d",
+      "css": "admin-select",
+      "orig_css": "arrow-combo",
+      "orig_code": 983025,
+      "src": "entypo",
+      "from": 59215
+    },
+    {
+      "search": [
+        "upload"
+      ],
+      "code": 983026,
+      "from": 128228,
+      "uid": "eeec3208c90b7b48e804919d0d2d4a41",
+      "css": "admin-upload",
+      "orig_css": "upload",
+      "orig_code": 983026,
+      "src": "fontawesome"
+    }
+  ]
+}

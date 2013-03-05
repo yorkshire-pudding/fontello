@@ -10,8 +10,8 @@
  */
 function fontello_admin_form($form, $form_state) {
   $form['#cache'] = TRUE;
+  fontello_admin_add_css();
   fontello_add_css($form);
-  drupal_add_css(drupal_get_path('module', 'fontello') . '/css/fontello.admin.css');
   $icons = fontello_get_icons();
   // Icons.
   $form['icons'] = array(

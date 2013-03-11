@@ -150,12 +150,6 @@ function fontello_admin_form_import_validate($form, &$form_state) {
     fontello_remove_bundle();
     return;
   }
-  // Validate the filename.
-  if (strpos($file->filename, 'fontello-') === FALSE) {
-    form_set_error('file', t('The file upload is not a valid archive provided by !fontello.', array('!fontello' => l('Fontello', 'http://fontello.com'))));
-    fontello_remove_bundle();
-    return;
-  }
   $bundle = fontello_import_bundle($file);
   if ($bundle !== TRUE) {
     form_set_error('file', $bundle);

@@ -164,7 +164,7 @@ function fontello_remove_bundle($path = NULL) {
   }
   if (!empty($path) && file_exists($path)) {
     if (!file_unmanaged_delete_recursive($path)) {
-      drupal_set_error(t('An error occured when attempting to remove the following Fontello webfont bundle: %path', array('%path' => drupal_realpath($path))), 'error', FALSE);
+      drupal_set_message(t('An error occured when attempting to remove the following Fontello webfont bundle: %path', array('%path' => drupal_realpath($path))), 'error', FALSE);
     }
   }
   variable_del('fontello_dir');
@@ -298,15 +298,20 @@ function theme_fontello_list($variables) {
 function fontello_get_css($reset = FALSE) {
   $css = &drupal_static(__FUNCTION__);
   if (!isset($css) || $reset) {
+    $config = fontello_config(TRUE);
+    $name = $config['name'];
+    if (empty($name)) {
+      $name = 'fontello';
+    }
     $css = array();
     if ($fontello_dir = variable_get('fontello_dir', NULL)) {
       $css_dir = 'public://fontello/' . $fontello_dir . '/css';
       $method = variable_get('fontello_method', 0);
       // Determine which include method to use.
       $methods = array(
-        0 => 'fontello.css',
-        1 => 'fontello-embedded.css',
-        2 => 'fontello-codes.css',
+        0 => $name . '.css',
+        1 => $name . '-embedded.css',
+        2 => $name . '-codes.css',
       );
       $css[$css_dir . '/' . $methods[$method]] = array(
         'type' => 'file',
@@ -316,16 +321,15 @@ function fontello_get_css($reset = FALSE) {
       if (variable_get('fontello_animation', TRUE)) {
         $css[$css_dir . '/animation.css'] = array(
           'type' => 'file',
-          'variable' => 'fontello_animation',
           'every_page' => TRUE,
         );
       }
       // Determine whether to include IE7 support.
       if (variable_get('fontello_ie7', TRUE)) {
         $ie7 = array(
-          0 => 'fontello-ie7.css',
-          1 => 'fontello-ie7.css',
-          2 => 'fontello-ie7-codes.css',
+          0 => $name . '-ie7.css',
+          1 => $name . '-ie7.css',
+          2 => $name . '-ie7-codes.css',
         );
         $css[$css_dir . '/' . $ie7[$method]] = array(
           'type' => 'file',

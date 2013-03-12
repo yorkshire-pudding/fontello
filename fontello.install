@@ -9,7 +9,7 @@
  * Implements hook_uninstall().
  */
 function fontello_uninstall() {
-  // Remove variables.
+  // Remove fontello variables.
   db_delete('variable')
   ->condition('name', 'fontello_%', 'LIKE')
   ->execute();
@@ -43,4 +43,27 @@ function fontello_install_create_fields($table, $fields) {
       }
     }
   }
+}
+
+/**
+ * Combine existing variables into one default settings variable.
+ */
+function fontello_update_7001() {
+  drupal_load('module', 'fontello');
+  // Construct the data.
+  $directory = variable_get('fontello_dir', '');
+  $bundle = fontello_bundle_default();
+  $bundle['animation'] = variable_get('fontello_animation', TRUE);
+  $bundle['uri'] = !empty($directory) ? 'public://fontello/' . $directory : '';
+  $bundle['tag'] = variable_get('fontello_element', 'i');
+  $bundle['ie7'] = variable_get('fontello_ie7', TRUE);
+  $bundle['method'] = variable_get('fontello_method', 0);
+  // Save the data.
+  fontello_bundle_save('default', $bundle);
+  // Remove the old variables.
+  variable_del('fontello_dir');
+  variable_del('fontello_animation');
+  variable_del('fontello_element');
+  variable_del('fontello_ie7');
+  variable_del('fontello_method');
 }

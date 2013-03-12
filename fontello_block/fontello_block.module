@@ -30,7 +30,7 @@ function fontello_block_preprocess_block(&$variables) {
   if (empty($fontello)) {
     $fontello = fontello_block_defaults();
   }
-  $icons = fontello_get_icons();
+  // @TODO $icons = fontello_get_icons();
   if (!empty($fontello['icon']) && isset($icons[$fontello['icon']])) {
     $icon = theme('fontello_icon', array('icon' => $icons[$fontello['icon']]));
     switch ($fontello['position']) {

@@ -9,7 +9,7 @@
  * Implements hook_init().
  */
 function fontello_init() {
-  fontello_add_css();
+  fontello_add_css($GLOBALS['theme_key']);
 }
 
 /**
@@ -26,10 +26,32 @@ function fontello_menu() {
     'file' => 'fontello.admin.inc',
     'type' => MENU_LOCAL_TASK,
   );
-  $items['admin/appearance/fontello/config'] = array(
+  $items['admin/appearance/fontello/default'] = array(
+    'title' => 'Default',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fontello_admin_form'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'fontello.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  foreach (list_themes() as $theme) {
+    if (!$theme->status) {
+      continue;
+    }
+    $items['admin/appearance/fontello/' . $theme->name] = array(
+      'title' => $theme->info['name'],
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('fontello_admin_form', $theme->name),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'fontello.admin.inc',
+      'type' => MENU_LOCAL_TASK,
+    );
+  }
+  $items['admin/appearance/fontello/config/%fontello_bundle'] = array(
     'title' => 'config.json',
-    'page callback' => 'fontello_config_callback',
-    'page arguments' => array(),
+    'page callback' => 'fontello_download_config_callback',
+    'page arguments' => array(4),
     'access arguments' => array('administer site configuration'),
     'type' => MENU_CALLBACK,
   );
@@ -45,6 +67,8 @@ function fontello_theme($existing, $type, $theme, $path) {
       'variables' => array(
         'attributes' => array(),
         'icon' => NULL,
+        'bundle' => NULL,
+        'theme' => NULL,
       ),
     ),
     'fontello_list' => array(
@@ -58,50 +82,48 @@ function fontello_theme($existing, $type, $theme, $path) {
   );
 }
 
+
 /**
- * Helper function to return the configuration file.
+ * Helper function to appropriately add CSS files.
  *
- * @param bool $process
- *   If set to TRUE, the configuration file will be processed.
+ * @param array $element
+ *   The form element to attach the CSS files to.
  * @param bool $reset
  *   Resets the array and forces a complete rebuild.
- *
- * @return string|array
- *   Returns path to config file. If $process is set to
- *   TRUE, returns an associative array. Returns FALSE
- *   if no configuration file can be found.
  */
-function fontello_config($process = FALSE, $reset = FALSE) {
-  $file = &drupal_static(__FUNCTION__ . '_file');
-  if ($reset || !isset($file)) {
-    $file = FALSE;
-    if ($fontello_dir = variable_get('fontello_dir', NULL)) {
-      $file = 'public://fontello/' . $fontello_dir . '/config.json';
-      if (!file_exists($file)) {
-        $file = FALSE;
-      }
+function fontello_add_css($theme = 'default', &$element = NULL, $reset = FALSE) {
+  foreach (fontello_get_css($theme, $reset) as $file => $options) {
+    // Ensure the basenames are unique (in case multiple bundles are loaded on one page).
+    $options['basename'] = md5($file) . '-' . $file;
+    if (!empty($element) && is_array($element)) {
+      $element['#attached']['css'][$file] = $options;
+    }
+    else {
+      drupal_add_css($file, $options);
     }
   }
-  if ($file && $process) {
-    $config = &drupal_static(__FUNCTION__ . '_config');
-    if ($reset || !isset($config)) {
-      $config = drupal_json_decode(file_get_contents($file));
-    }
-    return $config;
-  }
-  return $file;
+}
+
+function fontello_admin_add_css() {
+  $module_path = drupal_get_path('module', 'fontello');
+  fontello_bundle_load('fontello_admin', array(
+    'custom' => TRUE,
+    'uri' => $module_path . '/admin-font',
+  ));
+  fontello_add_css('fontello_admin');
+  drupal_add_css($module_path . '/css/fontello.admin.css');
 }
 
 /**
  * Callback for downloading the webfont bundle configuration file.
  */
-function fontello_config_callback() {
-  if ($config = fontello_config()) {
+function fontello_download_config_callback($bundle) {
+  if ($bundle) {
     global $user;
     $file = new stdClass();
     $file->fid = NULL;
-    $file->uri = $config;
-    $file->filename = drupal_basename($file->uri);
+    $file->uri = $bundle['uri'] . '/config.json';
+    $file->filename = drupal_basename($bundle['uri']) . '-' . drupal_basename($file->uri);
     $file->filemime = file_get_mimetype($file->uri);
     $file->filesize = filesize($file->uri);
     $file->uid = $user->uid;
@@ -109,6 +131,136 @@ function fontello_config_callback() {
     file_transfer($file->uri, file_get_content_headers($file));
   }
   drupal_not_found();
+}
+
+function fontello_bundle_default() {
+  return array(
+    'animation' => TRUE,
+    'config' => FALSE,
+    'default' => FALSE,
+    'filename_prefix' => NULL,
+    'icons' => NULL,
+    'ie7' => TRUE,
+    'method' => 0,
+    'parsed' => FALSE,
+    'tag' => 'i',
+    'theme' => 'default',
+    'uri' => '',
+  );
+}
+
+function fontello_bundle_load($theme = 'default', $bundle = array(), $reset = FALSE) {
+  $bundles = &drupal_static(__FUNCTION__);
+  if (!isset($bundles) || !isset($bundles[$theme])) {
+    $bundle = array_merge(fontello_bundle_default(), $bundle);
+    if (!isset($bundle['custom']) || !$bundle['custom']) {
+      if ($theme !== 'default' && $theme_bundle = variable_get('fontello_' . $theme . '_settings', array())) {
+        $bundle = array_merge($bundle, $theme_bundle);
+      }
+      else {
+        $bundle = array_merge($bundle, variable_get('fontello_default_settings', array()));
+        $bundle['default'] = TRUE;
+      }
+    }
+    // Run bundle through parser.
+    fontello_bundle_parse($bundle);
+    // Add bundle to array of bundles.
+    $bundles[$theme] = $bundle;
+  }
+  return $bundles[$theme];
+}
+
+function fontello_bundle_save($theme = 'default', $bundle = array(), $message = TRUE) {
+  $bundle = array_merge(fontello_bundle_default(), $bundle);
+  // Run bundle through parser.
+  fontello_bundle_parse($bundle);
+  // Ensure the theme name gets saved with the data it belongs to.
+  $bundle['theme'] = $theme;
+  // Save data.
+  variable_set('fontello_' . $theme . '_settings', $bundle);
+  if ($message) {
+    $themes = list_themes();
+    $theme_name = $theme === 'default' ? 'the default bundle' : $themes[$theme]->info['name'];
+    drupal_set_message(t('Successfully updated Fontello settings for %theme.', array('%theme' => $theme_name)));
+  }
+}
+
+function fontello_bundle_parse(&$bundle) {
+  if (!$bundle['parsed']) {
+    $bundle['parsed'] = TRUE;
+    $bundle['filename_prefix'] = 'fontello';
+    $bundle['icons'] = array();
+    if (!empty($bundle['uri']) && file_exists($bundle['uri'] . '/config.json')) {
+      if ($config = drupal_json_decode(file_get_contents($bundle['uri'] . '/config.json'))) {
+        $bundle['config'] = TRUE;
+        if (!empty($config['name'])) {
+          $bundle['filename_prefix'] = $config['name'];
+        }
+        if (!empty($config['glyphs'])) {
+          foreach ($config['glyphs'] as $icon) {
+            $bundle['icons'][$icon['css']] = $icon;
+          }
+          // Alphebetically sort the icons.
+          ksort($bundle['icons']);
+        }
+      }
+    }
+  }
+}
+  
+/**
+ * Helper function to determine the proper CSS files to add.
+ *
+ * @param bool $reset
+ *   Resets the array and forces a complete rebuild.
+ */
+function fontello_get_css($theme = 'default', $reset = FALSE) {
+  $css = &drupal_static(__FUNCTION__);
+  if (!isset($css)) {
+    $css = array();
+  }
+  if ((!isset($css[$theme]) || $reset)) {
+    $css[$theme] = array();
+    $bundle = fontello_bundle_load($theme, array(), $reset);
+    // Only return filenames for bundles that actually have icons.
+    if (!count($bundle['icons'])) {
+      return $css[$theme];
+    }
+    // Determine which include method to use.
+    $methods = array(
+      0 => $bundle['filename_prefix'] . '.css',
+      1 => $bundle['filename_prefix'] . '-embedded.css',
+      2 => $bundle['filename_prefix'] . '-codes.css',
+    );
+    $css[$theme][$bundle['uri'] . '/css/' . $methods[$bundle['method']]] = array(
+      'type' => 'file',
+      'every_page' => TRUE,
+    );
+    // Determine whether to include animation support.
+    if ($bundle['animation']) {
+      $css[$theme][$bundle['uri'] . '/css/animation.css'] = array(
+        'type' => 'file',
+        'every_page' => TRUE,
+      );
+    }
+    // Determine whether to include IE7 support.
+    if ($bundle['ie7']) {
+      $ie7 = array(
+        0 => $bundle['filename_prefix'] . '-ie7.css',
+        1 => $bundle['filename_prefix'] . '-ie7.css',
+        2 => $bundle['filename_prefix'] . '-ie7-codes.css',
+      );
+      $css[$theme][$bundle['uri'] . '/css/' . $ie7[$bundle['method']]] = array(
+        'type' => 'file',
+        'every_page' => TRUE,
+        'browsers' => array(
+          'IE' => 'IE 7',
+          '!IE' => FALSE
+        ),
+      );
+    }
+  }
+  return $css[$theme];
 }
 
 /**
@@ -121,9 +273,12 @@ function fontello_config_callback() {
  *   TRUE if bundle was successfully imported or in the event of a failed
  *   import an error message will be returned.
  */
-function fontello_import_bundle($file) {
-  // Determine the new Fontello directory.
-  $fontello_dir = substr($file->filename, 0, strpos($file->filename, '.'));
+function fontello_bundle_import($file, &$form_state) {
+  // Get the appropriate theme to import bundle to.
+  $theme = $form_state['build_info']['args'][0];
+  // Create a new Fontello bundle array.
+  $bundle = fontello_bundle_default();
+  $bundle['uri'] = 'public://fontello/' . substr($file->filename, 0, strpos($file->filename, '.'));
   // Prepare the directory
   $archive_destination = 'public://fontello';
   file_prepare_directory($archive_destination);
@@ -133,67 +288,50 @@ function fontello_import_bundle($file) {
     $archive = update_manager_archive_extract(drupal_realpath($file->uri), drupal_realpath($archive_destination));
   }
   catch (Exception $e) {
+    if (file_exists($bundle['uri'])) {
+      file_unmanaged_delete_recursive($bundle['uri']);
+    }
+    file_delete($file);
     return $e->getMessage();
   }
-  $files = $archive->listContents();
-  if (!$files || !in_array($fontello_dir . '/config.json', $files)) {
-    file_unmanaged_delete_recursive('public://fontello/' . $fontello_dir);
-    return t('The bundle uploaded does not contain the required %config file provided by !fontello.', array(
+  // Run bundle through parser.
+  fontello_bundle_parse($bundle);
+  if (!$bundle['config'] || !count($bundle['icons'])) {
+    file_unmanaged_delete_recursive($bundle['uri']);
+    return t('The uploaded bundle either does not contain a proper %config file or cannot properly import the icons. Please ensure the bundle uploaded is one provided by !fontello.', array(
       '%config' => 'config.json',
       '!fontello' => l('Fontello', 'http://fontello.com'),
     ));
   }
-  // Delete the previous fontello directory, if it exists.
-  $current_fontello_dir = variable_get('fontello_dir', NULL);
-  if ($current_fontello_dir && $fontello_dir !== $current_fontello_dir) {
-    fontello_remove_bundle('public://fontello/' . $current_fontello_dir);
-  }
-  // Save the new fontello directory in a variable.
-  variable_set('fontello_dir', $fontello_dir);
+  // Delete the previous Fontello bundle, if it exists.
+  fontello_bundle_delete($theme);
+  // Save the new Fontello bundle.
+  fontello_bundle_save($theme, $bundle, FALSE);
   // Delete the temporary archive file.
   file_delete($file);
+  // Save new bundle as a copy in $form_state.
+  $form_state['bundle'] = $bundle;
   return TRUE;
 }
 
 /**
  * Helper function to remove an existing webfont bundle.
  */
-function fontello_remove_bundle($path = NULL) {
-  if (empty($path) && $fontello_dir = variable_get('fontello_dir', NULL)) {
-    $path = 'public://fontello/' . $fontello_dir;
-  }
-  if (!empty($path) && file_exists($path)) {
-    if (!file_unmanaged_delete_recursive($path)) {
-      drupal_set_message(t('An error occured when attempting to remove the following Fontello webfont bundle: %path', array('%path' => drupal_realpath($path))), 'error', FALSE);
+function fontello_bundle_delete($theme = 'default') {
+  $bundle = fontello_bundle_load($theme);
+  if ($bundle['theme'] === $theme && !empty($bundle['uri']) && file_exists($bundle['uri'])) {
+    if (!file_unmanaged_delete_recursive($bundle['uri'])) {
+      drupal_set_message(t('An error occured when attempting to remove the following Fontello webfont bundle: %path', array('%path' => drupal_realpath($bundle['uri']))), 'error', FALSE);
     }
+    variable_del('fontello_' . $theme . '_settings');
   }
-  variable_del('fontello_dir');
 }
 
-/**
- * Helper function to return all available icons.
- *
- * @param bool $reset
- *   Resets the array and forces a complete rebuild.
- */
-function fontello_get_icons($reset = FALSE) {
-  $icons = array();
-  if ($config = fontello_config(TRUE, $reset)) {
-    if (isset($config['glyphs'])) {
-      foreach ($config['glyphs'] as $icon) {
-        $icons[$icon['css']] = $icon;
-      }
-    }
-  }
-  // Alphebetically sort the icons.
-  ksort($icons);
-  return $icons;
-}
-
-function fontello_form_icon_select(&$element, $default) {
+function fontello_form_icon_select(&$element, &$form_state, $default_value = NULL) {
+  $bundle = $form_state['fontello_bundle'];
   $fontello_path = drupal_get_path('module', 'fontello');
   $random = mt_rand();
-  $icons = fontello_get_icons();
+  // @TODO $icons = fontello_get_icons();
   $options = array('' => '- No Icon -');
   foreach ($icons as $name => $icon) {
     $options[$name] = $name;
@@ -210,13 +348,15 @@ function fontello_form_icon_select(&$element, $default) {
   );
   $element['icon'] = array(
     '#type' => 'select',
-    '#default_value' => $default,
     '#options' => array_combine(array_keys($options), array_values($options)),
     '#attributes' => array(
       'class' => array('icon-value'),
     ),
     '#prefix' => '<div data-dropdown="#dropdown-' . $random .'" class="fontello-select-icon form-item">',
   );
+  if (!empty($default_value)) {
+    $element['icon']['#default_value'] = $default_value;
+  }
   // Enclose the text with labels and assign class names for JS dropdown.
   foreach ($options as $name => $icon) {
     $options[$name] = array(
@@ -290,116 +430,50 @@ function theme_fontello_list($variables) {
 }
 
 /**
- * Helper function to determine the proper CSS files to add.
- *
- * @param bool $reset
- *   Resets the array and forces a complete rebuild.
- */
-function fontello_get_css($reset = FALSE) {
-  $css = &drupal_static(__FUNCTION__);
-  if (!isset($css) || $reset) {
-    $config = fontello_config(TRUE);
-    $name = $config['name'];
-    if (empty($name)) {
-      $name = 'fontello';
-    }
-    $css = array();
-    if ($fontello_dir = variable_get('fontello_dir', NULL)) {
-      $css_dir = 'public://fontello/' . $fontello_dir . '/css';
-      $method = variable_get('fontello_method', 0);
-      // Determine which include method to use.
-      $methods = array(
-        0 => $name . '.css',
-        1 => $name . '-embedded.css',
-        2 => $name . '-codes.css',
-      );
-      $css[$css_dir . '/' . $methods[$method]] = array(
-        'type' => 'file',
-        'every_page' => TRUE,
-      );
-      // Determine whether to include animation support.
-      if (variable_get('fontello_animation', TRUE)) {
-        $css[$css_dir . '/animation.css'] = array(
-          'type' => 'file',
-          'every_page' => TRUE,
-        );
-      }
-      // Determine whether to include IE7 support.
-      if (variable_get('fontello_ie7', TRUE)) {
-        $ie7 = array(
-          0 => $name . '-ie7.css',
-          1 => $name . '-ie7.css',
-          2 => $name . '-ie7-codes.css',
-        );
-        $css[$css_dir . '/' . $ie7[$method]] = array(
-          'type' => 'file',
-          'every_page' => TRUE,
-          'browsers' => array(
-            'IE' => 'IE 7',
-            '!IE' => FALSE
-          ),
-        );
-      }
-    }
-  }
-  return $css;
-}
-
-
-/**
- * Helper function to appropriately add CSS files.
- *
- * @param array $element
- *   The form element to attach the CSS files to.
- * @param bool $reset
- *   Resets the array and forces a complete rebuild.
- */
-function fontello_add_css(&$element = NULL, $reset = FALSE) {
-  foreach (fontello_get_css($reset) as $file => $options) {
-    $options['basename'] = md5($file) . '-' . $file;
-    if (!empty($element) && is_array($element)) {
-      $element['#attached']['css'][$file] = $options;
-    }
-    else {
-      drupal_add_css($file, $options);
-    }
-  }
-}
-
-function fontello_admin_add_css() {
-  $path = drupal_get_path('module', 'fontello');
-  drupal_add_css($path . '/admin-font/css/animation.css');
-  drupal_add_css($path . '/admin-font/css/fontello.css');
-  drupal_add_css($path . '/admin-font/css/fontello-ie7.css', array('browsers' => array('IE' => 'IE 7', '!IE' => FALSE)));
-  drupal_add_css($path . '/css/fontello.admin.css');
-}
-
-/**
  * Implements hook_preprocess_fontello_icon().
  */
 function fontello_preprocess_fontello_icon(&$variables) {
-  // Default classes.
-  $classes = array(
-    'icon',
-    'icon-' . $variables['icon']['css'],
-  );
-  // Check for additional classes provided by Fontello (for things like animations).
-  if (isset($variables['icon']['css-ext'])) {
-    foreach (explode(' ', $variables['icon']['css-ext']) as $css_ext) {
-      if (!in_array($css_ext, $classes)) {
-        $classes[] = $css_ext;
+  $theme = &$variables['theme'];
+  if (!empty($theme)) {
+    $theme = $GLOBALS['theme_key'];
+  }
+  $bundle = &$variables['bundle'];
+  if (empty($bundle)) {
+    $bundle = fontello_bundle_load($theme);
+  }
+  $icon = &$variables['icon'];
+  if (isset($bundle['icons'][$icon])) {
+    $icon = $bundle['icons'][$icon];
+    // Default classes.
+    $classes = array('icon');
+    if (is_array($icon)) {
+      $classes[] = 'icon-' . $icon['css'];
+      // Check for additional classes provided by Fontello (for things like animations).
+      if (isset($icon['css-ext'])) {
+        foreach (explode(' ', $icon['css-ext']) as $css_ext) {
+          if (!in_array($css_ext, $classes)) {
+            $classes[] = $css_ext;
+          }
+        }
+      }
+    }
+    // Add classes to array.
+    $attributes = &$variables['attributes'];
+    if (!isset($attributes['class'])) {
+      $attributes['class'] = array();
+    }
+    foreach ($classes as $class) {
+      if (!in_array($class, $attributes['class'])) {
+        $attributes['class'][] = $class;
       }
     }
   }
-  // Add classes to array.
-  $attributes = &$variables['attributes'];
-  if (!isset($attributes['class'])) {
-    $attributes['class'] = array();
-  }
-  foreach ($classes as $class) {
-    if (!in_array($class, $attributes['class'])) {
-      $attributes['class'][] = $class;
-    }
+  else {
+    drupal_set_message(t('The icon, %icon, supplied to %hook does not exist.', array(
+      '%icon' => $icon,
+      '%hook' => 'theme("fontello_icon")',
+    )), 'error');
+    $icon = NULL;
   }
 }
 
@@ -407,6 +481,7 @@ function fontello_preprocess_fontello_icon(&$variables) {
  * Theming function for fontello_icon.
  */
 function theme_fontello_icon($variables) {
-  $element = variable_get('fontello_element', 'i');
-  return '<' . $element . drupal_attributes($variables['attributes']) . '></' . $element . '>';
+  if (!empty($variables['icon'])) {
+    return '<' . $variables['bundle']['tag'] . drupal_attributes($variables['attributes']) . '></' . $variables['bundle']['tag'] . '>';
+  }
 }

@@ -15,10 +15,11 @@ function fontello_block_permission() {
 /**
  * Helper function to return the default Fontello block values.
  */
-function fontello_block_defaults() {
+function fontello_block_defaults($bundle = NULL) {
   return array(
     'icon' => '',
     'position' => 'title_before',
+    'bundle' => $bundle,
   );
 }
 /*
@@ -27,12 +28,15 @@ function fontello_block_defaults() {
 function fontello_block_preprocess_block(&$variables) {
   $block = &$variables['block'];
   $fontello = isset($block->fontello) ? unserialize($block->fontello) : array();
-  if (empty($fontello)) {
-    $fontello = fontello_block_defaults();
+  
+  $theme = $GLOBALS['theme_key'];
+  if (isset($block->theme)) {
+    $theme = $block->theme;
   }
-  // @TODO $icons = fontello_get_icons();
-  if (!empty($fontello['icon']) && isset($icons[$fontello['icon']])) {
-    $icon = theme('fontello_icon', array('icon' => $icons[$fontello['icon']]));
+  $fontello = array_merge(fontello_block_defaults(fontello_bundle_load($theme)), isset($block->fontello) ? unserialize($block->fontello) : array());
+  $bundle = $fontello['bundle'];
+  if (!empty($fontello['icon']) && isset($bundle['icons'][$fontello['icon']])) {
+    $icon = theme('fontello_icon', array('icon' => $fontello['icon'], 'bundle' => $bundle));
     switch ($fontello['position']) {
       case 'title_before': $variables['title_prefix'][] = array('#markup' => $icon); break;
       case 'title_after': $variables['title_suffix'][] = array('#markup' => $icon); break;
@@ -51,10 +55,16 @@ function fontello_block_form_alter(&$form, &$form_state, $form_id) {
   global $user;
   if (($form_id == 'block_admin_configure' || $form_id == 'block_add_block_form') && user_access('administer block icons', $user)) {
     $block = block_load($form['module']['#value'], $form['delta']['#value']);
-    $fontello = isset($block->fontello) ? unserialize($block->fontello) : array();
-    if (empty($fontello)) {
-      $fontello = fontello_block_defaults();
+    $theme = variable_get('theme_default', 'bartik');
+    if (isset($block->theme)) {
+      $theme = $block->theme;
     }
+    elseif (arg(5) === 'add') {
+      $theme = arg(4);
+    }
+    $fontello = array_merge(fontello_block_defaults(fontello_bundle_load($theme)), isset($block->fontello) ? unserialize($block->fontello) : array());
+    $bundle = $form_state['bundle'] = $fontello['bundle'];
+    fontello_bundle_css_add($bundle['theme'], $form);
     $form['settings']['fontello'] = array(
       '#type' => 'fieldset',
       '#title' => t('Insert Icon'),
@@ -63,7 +73,7 @@ function fontello_block_form_alter(&$form, &$form_state, $form_id) {
       '#tree' => TRUE,
     );
     // Add in the icon select field.
-    fontello_form_icon_select($form['settings']['fontello'], $fontello['icon'], 'fontello');
+    fontello_form_icon_select($form['settings']['fontello'], $form_state, $fontello['icon']);
     // Additional configuration on where to place the icon in the block.
     $icon_state = array('invisible' => array(':input[name="fontello[icon]"]' => array('value' => '')));
     $form['settings']['fontello']['position'] = array(

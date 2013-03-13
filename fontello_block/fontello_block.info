@@ -4,3 +4,6 @@ core = 7.x
 
 files[] = fontello_block.install
 files[] = fontello_block.module
+
+dependencies[] = block
+dependencies[] = fontello

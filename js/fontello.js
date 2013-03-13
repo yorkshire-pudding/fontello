@@ -8,9 +8,9 @@ if(Drupal && jQuery) (function($) {
         var trigger = $(this);
         var select = $('select', trigger).css('opacity', 0);
         if (select.length) {
-          var preview = $('<span/>').addClass('dropdown-preview').html('<span class="text"></span><i class="icon icon-admin-select"></i>').appendTo(select.parent()).mouseenter(function(){
+          var preview = $('<span/>').addClass('dropdown-preview').html('<span class="text"></span><i class="icon icon-admin-select"></i>').appendTo(select.parent()).on('mouseenter.fontello', function(){
             $(this).addClass('hover');
-          }).mouseleave(function(){
+          }).on('mouseleave.fontello', function(){
             $(this).removeClass('hover');
           });
           var previewWidth = 0;
@@ -77,12 +77,12 @@ if(Drupal && jQuery) (function($) {
                 updateSelection(li);
               }
               // Mouse Enter
-              li.mouseenter(function(){
+              li.on('mouseenter.fontello', function(){
                 updateClasses(li);
                 return false;
               });
               // Click
-              liLabel.click(function(){
+              liLabel.on('click.fontello', function(){
                 updateSelection($(this));
                 dropdown.dropdown('hide');
                 return false;
@@ -97,6 +97,7 @@ if(Drupal && jQuery) (function($) {
           // Process the dropdown events.
           select.on('focus', function(){
             preview.addClass('focus');
+            $(document).off('keydown.dropdown');
             $(document).on('keydown.dropdown', null, function(e) {
               switch(e.which) {
                 // Enter or Spacebar
@@ -153,6 +154,7 @@ if(Drupal && jQuery) (function($) {
               updateScrollTop(true);
             }
             // Bind keys for input while open.
+            $(document).off('keydown.dropdown');
             $(document).on('keydown.dropdown', null, $(this), function(e) {
               var dropdown = e.data;
               var selected = $('li.selected', dropdown);

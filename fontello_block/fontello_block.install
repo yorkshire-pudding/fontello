@@ -36,3 +36,27 @@ function fontello_block_schema_alter(&$schema) {
     'size' => 'normal',
   );
 }
+
+function fontello_block_update_dependencies() {
+  $dependencies['fontello_block'][7001] = array(
+    'fontello' => 7001,
+  );
+  return $dependencies;
+}
+
+/**
+ * Add bundle to existing Fontello block settings.
+ */
+function fontello_block_update_7001() {
+  drupal_load('module', 'fontello');
+  $blocks = db_select('block', 'b')
+            ->fields('b')
+            ->isNotNull('fontello')
+            ->execute();
+  while ($block = $blocks->fetchAssoc()) {
+    if ($fontello = unserialize($block['fontello'])) {
+      $fontello['bundle'] = fontello_bundle_load($block['theme']);
+      db_merge('block')->key(array('module' => $block['module'], 'delta' => $block['delta'], 'theme' => $block['theme']))->fields(array('fontello' => serialize($fontello)))->execute();
+    }
+  }
+}

@@ -16,7 +16,7 @@ function fontello_admin_form($form, $form_state, $theme = 'default') {
   // Add administrative css.
   fontello_admin_add_css();
   // Add the theme's bundle, if applicable.
-  fontello_add_css($theme, $form, TRUE);
+  fontello_bundle_css_add($theme, $form, TRUE);
   $bundle = $form_state['bundle'] = fontello_bundle_load($theme);
   // Icons.
   $form['icons'] = array(

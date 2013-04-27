@@ -1,8 +1,6 @@
 name = Fontello
-description = Provides webfont icon integration via the <a href="http://fontello.com" target="_blank">Fontello</a> service.
+description = Integrates the <a href="http://fontello.com" target="_blank">Fontello</a> service as an icon provider for the Icon API.
 core = 7.x
-configure = admin/appearance/fontello
-
-files[] = fontello.install
-files[] = fontello.module
-files[] = fontello.admin.inc
+configure = admin/config/media/icons
+package = Icon Provider
+dependencies[] = icon

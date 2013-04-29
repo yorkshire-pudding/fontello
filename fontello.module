@@ -175,6 +175,16 @@ function fontello_icon_bundle_configure(&$settings, &$form_state, &$complete_for
 }
 
 /**
+ * Implements hook_icon_bundle_delete().
+ * Deletes the uploaded Fontello bundle from the file system.
+ */
+function fontello_icon_bundle_delete($bundle) {
+  if ($bundle['provider'] === 'fontello' && file_exists($bundle['path'])) {
+    file_unmanaged_delete_recursive($bundle['path']);
+  }
+}
+
+/**
  * Download a webfont bundle configuration file.
  *
  * @param string $bundle

@@ -64,8 +64,6 @@ function fontello_icon_fontello_import_process(&$bundle) {
         foreach ($config['glyphs'] as $icon) {
           $bundle['icons'][($config['css_use_suffix'] ? $icon['css'] . $config['css_prefix_text'] : $config['css_prefix_text'] . $icon['css'])] = $icon['css'];
         }
-        // Alphebetically sort the icons.
-        ksort($bundle['icons']);
         // Add processing callback.
         $bundle['#attached']['fontello_process_attached'] = array(array($bundle));
       }

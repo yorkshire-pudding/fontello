@@ -15,9 +15,9 @@ function fontello_icon_providers() {
     'default bundle' => array(
       'render' => 'sprite',
       'settings' => array(
-        'animation' => TRUE,
+        'animation' => 1,
         'filename_prefix' => NULL,
-        'ie7' => TRUE,
+        'ie7' => 1,
         'method' => 'default',
         'tag' => 'i',
       ),
@@ -49,8 +49,8 @@ function fontello_get_config($path) {
 /**
  * Implements hook_icon_import_process().
  */
-function fontello_icon_import_process($provider, &$bundle) {
-  if ($provider['name'] === 'fontello') {
+function fontello_icon_import_process(&$bundle) {
+  if ($bundle['provider'] === 'fontello') {
     if (is_null($bundle['settings']['filename_prefix'])) {
       $bundle['settings']['filename_prefix'] = 'fontello';
     }
@@ -134,6 +134,43 @@ function fontello_process_attached($bundle) {
   }
   foreach ($css as $data => $options) {
     drupal_add_css($data, $options);
+  }
+}
+
+/**
+ * Implements hook_icon_bundle_configure().
+ */
+function fontello_icon_bundle_configure(&$settings, &$form_state, &$complete_form) {
+  $bundle = $form_state['bundle'];
+  if ($bundle['provider'] === 'fontello') {
+    $settings['animation'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable Animation'),
+      '#description' => t('For browsers that support CSS3 animations, add the class %animation to any icon to enable a spinning animation. This is useful for creating custom throbbers.', array('%animation' => '.animate-spin')),
+      '#default_value' => $bundle['settings']['animation'],
+    );
+    $settings['ie7'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable IE7 Support'),
+      '#default_value' => $bundle['settings']['ie7'],
+    );
+    $settings['method'] = array(
+      '#type' => 'radios',
+      '#title' => t('Include Method'),
+      '#options' => array(
+        'default' => '<strong>' . t('Default') . '</strong> - ' . t('This method is strongly recommended and is usually enough. It contains the @font-face and character codes definitions.'),
+        'embedded' => '<strong>' . t('Embedded') . '</strong> - ' . t('Same as Default, however it contains the embedded WOFF font to avoid CORS issues in Firefox and IE9+, when fonts are hosted on a separate domain. It is strongly recommend to resolve this issue by adding appropriate "Access-Control-Allow-Origin" server headers.'),
+        'codes' => '<strong>' . t('Codes Only') . '</strong> - ' . t('This method is for advanced use cases and will require the use of a custom @font-face declaration. This can be useful in cases where seperating out the font is necessary (like automated asset build systems), however still wishing to reap the beneifits of Fontello\'s CSS generation. This module does not yet support a separated font asset upload and will need to be added via the theme or a custom module. See Fontello source code for an example.'),
+      ),
+      '#default_value' => $bundle['settings']['method'],
+    );
+    $settings['tag'] = array(
+      '#type' => 'select',
+      '#title' => t('HTML Markup'),
+      '#description' => t('Choose the HTML markup tag that Fontello icons should be created with. Typically, this is an %i tag, however it can be changed to suite the theme requirements.', array('%i' => '<i/>')),
+      '#options' => drupal_map_assoc(array('i', 'span', 'div')),
+      '#default_value' => $bundle['settings']['tag'],
+    );
   }
 }
 

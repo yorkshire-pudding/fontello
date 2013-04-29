@@ -1,6 +1,5 @@
 /* This is a fix for ensuring Fontello icons display properly. */
-.fontello[class^="icon-"],
-.fontello[class*=" icon-"] {
+.icon.fontello {
   background: none;
   display: inline-block;
   height: inherit;

@@ -65,7 +65,7 @@ function fontello_icon_fontello_import_process(&$bundle) {
           $bundle['icons'][($config['css_use_suffix'] ? $icon['css'] . $config['css_prefix_text'] : $config['css_prefix_text'] . $icon['css'])] = $icon['css'];
         }
         // Add processing callback.
-        $bundle['#attached']['fontello_process_attached'] = array(array($bundle));
+        $bundle['#attached']['fontello_process_attached'] = array(array($bundle['name']));
       }
     }
   }
@@ -83,7 +83,8 @@ function fontello_preprocess_icon(&$variables) {
 /**
  * CSS attach callback for a Fontello icon bundle.
  */
-function fontello_process_attached($bundle) {
+function fontello_process_attached($bundle_name) {
+  $bundle = icon_bundle_load($bundle_name);
   // Add some CSS for displaying Fontello icons properly. Noteably this helps
   // override the default icon styling packaged with certain base themes like
   // Bootstrap.

@@ -6,6 +6,19 @@
  */
 
 /**
+ * Provide default bundle settings.
+ */
+function fontello_default_settings() {
+  return array(
+    'animation' => 1,
+    'filename_prefix' => NULL,
+    'ie7' => 1,
+    'method' => 'default',
+    'tag' => 'i',
+  );
+}
+
+/**
  * Implements hook_icon_providers().
  */
 function fontello_icon_providers() {
@@ -14,13 +27,7 @@ function fontello_icon_providers() {
     'url' => 'http://fontello.com',
     'default bundle' => array(
       'render' => 'sprite',
-      'settings' => array(
-        'animation' => 1,
-        'filename_prefix' => NULL,
-        'ie7' => 1,
-        'method' => 'default',
-        'tag' => 'i',
-      ),
+      'settings' => fontello_default_settings(),
     ),
   );
   return $providers;
@@ -85,6 +92,11 @@ function fontello_preprocess_icon(&$variables) {
  */
 function fontello_process_attached($bundle_name) {
   $bundle = icon_bundle_load($bundle_name);
+  if (!$bundle) {
+    return;
+  }
+  // Applie default settings, just in case.
+  $bundle['settings'] += fontello_default_settings();
   // Add some CSS for displaying Fontello icons properly. Noteably this helps
   // override the default icon styling packaged with certain base themes like
   // Bootstrap.

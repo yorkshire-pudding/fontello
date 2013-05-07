@@ -7,7 +7,7 @@
   margin: 0;
   padding: 0;
   vertical-align: inherit;
-  width: inherit;
+  width: auto;
   /* IE 7 Hack for inline-block */
   *display: inline; 
   *zoom: 1;

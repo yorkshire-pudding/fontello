@@ -57,7 +57,7 @@ function fontello_get_config($path) {
  * Implements hook_icon_PROVIDER_import_process().
  */
 function fontello_icon_fontello_import_process(&$bundle) {
-  if (is_null($bundle['settings']['filename_prefix'])) {
+  if (!isset($bundle['settings']['filename_prefix'])) {
     $bundle['settings']['filename_prefix'] = 'fontello';
   }
   if (!empty($bundle['path']) && file_exists($bundle['path'] . '/config.json')) {
@@ -214,3 +214,4 @@ function fontello_download_config_callback($bundle) {
   }
   drupal_not_found();
 }
+
